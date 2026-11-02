@@ -38,14 +38,20 @@ Claude Code
                          config+state    per task
 ```
 
+DSH reaches the same core through a different door: `dsh/` is a bundle plugin
+(`package.json` → `dsh.bundle.patch`) whose adapter registers the skill and the
+commands with `ctx.skills.register()` and `ctx.commands.register()`. It reads the
+same `skills/codeflow/SKILL.md` and `commands/*.md`, so the workflow has one
+source, not two.
+
 Three rings:
 
 1. **Core** — the CLI modules. They own state, isolation, gates, evidence, and
    delivery. They never call an LLM.
 2. **Contract** — the versioned JSON envelope and schemas in `docs/contracts.md`.
    Commands and tests consume this; human output is only a renderer of it.
-3. **Shell** — Claude commands, the skill, and the session hook. They hold no state
-   of their own and never recompute what the CLI reports.
+3. **Shell** — Claude commands, the skill, the session hook, and the DSH adapter.
+   They hold no state of their own and never recompute what the CLI reports.
 
 There is no MCP server, no daemon, and no database.
 
@@ -377,6 +383,23 @@ base checkout can verify `main` and then push a stale task branch.
 
 **Rejected:** best-effort worktree fallback; trusting the branch name without checking
 the checkout; creating a PR without a matching head.
+
+### D22 — DSH gets an adapter, not a fork
+
+DeepSeek Harness loads a bundle through `package.json`'s `dsh.bundle.patch`.
+`dsh/index.js` reads the same `skills/codeflow/SKILL.md` and `commands/*.md` that
+Claude Code loads, registers the skill with `ctx.skills.register()`, and registers
+one `/codeflow-<verb>` command per file whose handler queues the adapted body with
+`agent.followup()`. Only two Claude-only spellings are rewritten:
+`${CLAUDE_PLUGIN_ROOT}` becomes the installed package root, and the `/codeflow:`
+prefix becomes `/codeflow-` because DSH command names allow only `[a-z0-9_-]`.
+
+**Why:** the workflow prose is the product. A copied or re-authored second version
+drifts, and pointing DSH's filesystem skill provider at `skills/` would serve the
+literal `${CLAUDE_PLUGIN_ROOT}`, a path that does not exist under DSH.
+
+**Rejected:** a forked skill directory; a parallel JS command library; changing the
+CLI or the state machine for DSH.
 
 ## Invariants
 
