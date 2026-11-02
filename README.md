@@ -2,7 +2,7 @@
 
 **English** | [简体中文](README.zh-CN.md)
 
-[![CI](https://github.com/PenguinSoul/codeflow/actions/workflows/ci.yml/badge.svg)](https://github.com/PenguinSoul/codeflow/actions/workflows/ci.yml)
+[![CI](https://github.com/PenguinSoul/dsh-codeflow/actions/workflows/ci.yml/badge.svg)](https://github.com/PenguinSoul/dsh-codeflow/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
 
@@ -100,21 +100,21 @@ worktree. If `.codeflow/state` is tracked by git, every command refuses to run.
 
 - Node.js 20 or newer
 - git
-- Claude Code
+- Claude Code or DeepSeek Harness (DSH)
 - `gh` — optional; without it, `pr` pushes the branch and prints a compare URL
 
 ## Install
 
 ```bash
-git clone https://github.com/PenguinSoul/codeflow.git
-cd codeflow
+git clone https://github.com/PenguinSoul/dsh-codeflow.git
+cd dsh-codeflow
 claude --plugin-dir .
 ```
 
 Or install from the repository as a marketplace:
 
 ```text
-/plugin install codeflow --marketplace PenguinSoul/codeflow
+/plugin install codeflow --marketplace PenguinSoul/dsh-codeflow
 ```
 
 Claude Code does not put a plugin's `bin/` directory on the Bash tool's `PATH`
@@ -126,6 +126,37 @@ cache:
 
 ```bash
 /path/to/codeflow/bin/codeflow --version
+```
+
+## Use with DeepSeek Harness (DSH)
+
+DSH installs a plugin into a profile rather than a project. Add this checkout as a
+bundle, then restart the profile:
+
+```bash
+git clone https://github.com/PenguinSoul/dsh-codeflow.git
+dsh plugin --profile tui add link:/absolute/path/to/dsh-codeflow
+dsh tui
+```
+
+The bundle contributes the `codeflow` skill and one command per markdown file,
+named `/codeflow-<verb>`: `/codeflow-new "Fix the login redirect"`, `/codeflow-plan`,
+`/codeflow-verify`, and so on. DSH command names allow only lowercase letters,
+digits, `_` and `-`, so the Claude prefix `/codeflow:` becomes `/codeflow-`. Both
+surfaces read the same files; the adapter rewrites `${CLAUDE_PLUGIN_ROOT}` to the
+installed package root, so the model is never told to run a path that does not exist.
+
+`codeflow` itself is unchanged. The CLI, the state machine, the gates, and the
+evidence model are one implementation; only the front door differs.
+
+The `SessionStart` hook is not mounted automatically. To run it under DSH, mount the
+Claude hooks bridge in the profile's `cordis.patch.yml`:
+
+```yaml
+- name: '@deepseek-ai/dsh-hooks-claude-code'
+  config:
+    configPath: /absolute/path/to/dsh-codeflow/hooks/hooks.json
+    pluginRoot: /absolute/path/to/dsh-codeflow
 ```
 
 ## A quick run

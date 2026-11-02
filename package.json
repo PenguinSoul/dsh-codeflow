@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Human-gated delivery workflow for Claude Code",
+  "main": "./dsh/index.js",
+  "description": "Human-gated delivery workflow for Claude Code and DeepSeek Harness",
   "license": "MIT",
   "bin": {
     "codeflow": "./bin/codeflow"
@@ -14,5 +15,10 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./dsh/cordis.patch.yml"
+    }
   }
 }

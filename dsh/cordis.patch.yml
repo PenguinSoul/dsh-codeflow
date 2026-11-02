@@ -1,0 +1,14 @@
+# The dsh-codeflow bundle patch.
+#
+# A DSH bundle is a package whose `package.json` declares `dsh.bundle.patch`;
+# the profile applies this layer after `@deepseek-ai/dsh-base`. The row name
+# resolves from the profile's own node_modules, where
+# `dsh plugin --profile <name> add link:<path>` installed this package, and
+# loads `package.json`'s `main` — the adapter in `dsh/index.js`.
+#
+# The adapter contributes a `codeflow` skill and one `/codeflow-<verb>`
+# command per `commands/*.md` file. It never replaces a base row, so the
+# harness keeps its tools, gates, and permissions.
+- insert:
+    - id: codeflow
+      name: codeflow

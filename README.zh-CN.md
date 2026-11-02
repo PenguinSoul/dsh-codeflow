@@ -2,7 +2,7 @@
 
 [English](README.md) | **简体中文**
 
-[![CI](https://github.com/PenguinSoul/codeflow/actions/workflows/ci.yml/badge.svg)](https://github.com/PenguinSoul/codeflow/actions/workflows/ci.yml)
+[![CI](https://github.com/PenguinSoul/dsh-codeflow/actions/workflows/ci.yml/badge.svg)](https://github.com/PenguinSoul/dsh-codeflow/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
 
@@ -74,21 +74,21 @@ done`。遇到 rebase 冲突、gate 失败、worktree 丢失之类的问题，�
 
 - Node.js 20 或更新
 - git
-- Claude Code
+- Claude Code 或 DeepSeek Harness (DSH)
 - `gh`：可选；没有它时，`pr` 会推分支并打印 compare URL
 
 ## 安装
 
 ```bash
-git clone https://github.com/PenguinSoul/codeflow.git
-cd codeflow
+git clone https://github.com/PenguinSoul/dsh-codeflow.git
+cd dsh-codeflow
 claude --plugin-dir .
 ```
 
 或者从仓库作为 marketplace 安装：
 
 ```text
-/plugin install codeflow --marketplace PenguinSoul/codeflow
+/plugin install codeflow --marketplace PenguinSoul/dsh-codeflow
 ```
 
 实测 Claude Code 2.1.278 不会把插件的 `bin/` 加入 Bash 工具的 `PATH`，所以命令统一通过
@@ -98,6 +98,34 @@ claude --plugin-dir .
 
 ```bash
 /path/to/codeflow/bin/codeflow --version
+```
+
+## 在 DeepSeek Harness (DSH) 中使用
+
+DSH 把插件装进 profile，而不是项目。把这个检出作为 bundle 加进去，然后重启 profile：
+
+```bash
+git clone https://github.com/PenguinSoul/dsh-codeflow.git
+dsh plugin --profile tui add link:/absolute/path/to/dsh-codeflow
+dsh tui
+```
+
+这个 bundle 提供 `codeflow` 技能，以及每个 markdown 文件对应的一条命令
+`/codeflow-<verb>`：`/codeflow-new "修复登录跳转"`、`/codeflow-plan`、
+`/codeflow-verify` 等等。DSH 的命令名只允许小写字母、数字、`_` 和 `-`，所以 Claude 的
+前缀 `/codeflow:` 变成 `/codeflow-`。两边读的是同一批文件；适配器把
+`${CLAUDE_PLUGIN_ROOT}` 替换成实际安装路径，模型不会拿到一个不存在的路径。
+
+`codeflow` 本身没有变。CLI、状态机、门禁和证据模型只有一份实现，区别只在入口。
+
+`SessionStart` hook 不会自动挂载。要在 DSH 里运行它，在 profile 的
+`cordis.patch.yml` 里挂上 Claude hooks 桥：
+
+```yaml
+- name: '@deepseek-ai/dsh-hooks-claude-code'
+  config:
+    configPath: /absolute/path/to/dsh-codeflow/hooks/hooks.json
+    pluginRoot: /absolute/path/to/dsh-codeflow
 ```
 
 ## 快速开始
