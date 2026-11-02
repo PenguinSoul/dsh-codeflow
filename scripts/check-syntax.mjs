@@ -15,7 +15,11 @@ function walk(dir) {
     const stat = statSync(file);
     if (stat.isDirectory()) {
       results.push(...walk(file));
-    } else if (name.endsWith(".mjs") || file === join(root, "bin", "codeflow")) {
+    } else if (
+      name.endsWith(".mjs") ||
+      name.endsWith(".js") ||
+      file === join(root, "bin", "codeflow")
+    ) {
       results.push(file);
     }
   }
@@ -25,6 +29,7 @@ function walk(dir) {
 const files = [
   join(root, "bin", "codeflow"),
   ...walk(join(root, "src")),
+  ...walk(join(root, "dsh")),
   ...walk(join(root, "test")),
   ...walk(join(root, "hooks")),
   ...walk(join(root, "scripts")),
