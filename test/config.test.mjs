@@ -130,6 +130,18 @@ test("validateConfig rejects a PR template outside the repository", () => {
   );
 });
 
+test("validateConfig accepts the three screenshot forms and rejects others", () => {
+  const config = defaultConfig({ baseBranch: "main", remote: "origin" });
+  for (const value of ["manual", "none", { command: "npm run shots" }]) {
+    config.pr.screenshots = value;
+    assert.deepEqual(validateConfig(config), []);
+  }
+  config.pr.screenshots = "auto";
+  assert.ok(
+    validateConfig(config).some((error) => error.includes("pr.screenshots")),
+  );
+});
+
 test("validateConfig accepts a mixed gate", () => {
   const config = defaultConfig({ baseBranch: "main", remote: "origin" });
   config.gates = [

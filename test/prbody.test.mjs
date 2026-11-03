@@ -132,6 +132,39 @@ test("renderPrBody fills sections from artifacts and only ticks evidence-backed 
   assert.doesNotMatch(body, /^old$/m);
 });
 
+test("screenshots: none renders the no-frontend sentence, not a TODO", () => {
+  const body = renderPrBody({
+    template,
+    task,
+    taskSpec,
+    plan,
+    evidence,
+    config: { pr: { screenshots: "none", titlePrefix: "" } },
+    review,
+    diffStatText: "",
+  });
+
+  assert.match(body, /Not applicable — no frontend changes\./);
+  assert.doesNotMatch(body, /TODO: add before\/after screenshots/);
+});
+
+test("screenshots: a command names the capture step", () => {
+  const body = renderPrBody({
+    template,
+    task,
+    taskSpec,
+    plan,
+    evidence,
+    config: {
+      pr: { screenshots: { command: "npm run shots" }, titlePrefix: "" },
+    },
+    review,
+    diffStatText: "",
+  });
+
+  assert.match(body, /Capture with `npm run shots`/);
+});
+
 test("a missing template falls back to the default shape", () => {
   const body = renderPrBody({
     template: "",

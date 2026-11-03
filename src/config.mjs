@@ -231,9 +231,12 @@ export function validateConfig(config) {
     const screenshots = config.pr.screenshots;
     if (
       screenshots !== "manual" &&
+      screenshots !== "none" &&
       !(isPlainObject(screenshots) && typeof screenshots.command === "string")
     ) {
-      errors.push('pr.screenshots must be "manual" or { command: string }');
+      errors.push(
+        'pr.screenshots must be "manual", "none", or { command: string }',
+      );
     }
     if (typeof config.pr.titlePrefix !== "string") {
       errors.push("pr.titlePrefix must be a string");

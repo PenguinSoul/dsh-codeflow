@@ -158,7 +158,9 @@ Rules:
 - `gates[].command` is a shell string, executed through the platform shell.
 - `gates[].env` may not contain secrets; it is committed.
 - `gates[].kinds` limits the gate to those task kinds. An empty array means all kinds.
-- `pr.screenshots` is `"manual"` or `{ "command": "npm run screenshots" }`.
+- `pr.screenshots` is `"manual"` (render the capture TODO), `"none"` (render
+  `Not applicable — no frontend changes.`), or `{ "command": "npm run screenshots" }`
+  (render that command).
 - `pr.sections` maps template headings to artifact fields when the template is custom.
 - `attention.failOn` accepts attention codes (`skip`, `suppression`, `config`,
   `lockfile`, `large-diff`); empty means warn only.
