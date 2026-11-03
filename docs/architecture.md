@@ -401,6 +401,19 @@ literal `${CLAUDE_PLUGIN_ROOT}`, a path that does not exist under DSH.
 **Rejected:** a forked skill directory; a parallel JS command library; changing the
 CLI or the state machine for DSH.
 
+### D23 — No model-facing `codeflow` tool in DSH
+
+The bundle contributes a skill and commands, not a tool. The skill already carries
+the resolved `bin/codeflow` path, and the harness's bash tool runs it; a dedicated
+tool would duplicate the 17 verbs and would bypass the shell/approval seam the
+harness applies to commands.
+
+**Why:** the CLI is the integration surface (D18). Wrapping it again adds a second
+interface to keep in sync and a second path around the human gates.
+
+**Rejected:** a `codeflow` tool that forwards argv; a client-side panel that shells
+out to the CLI.
+
 ## Invariants
 
 - One writer per task at a time; all state writes are atomic.

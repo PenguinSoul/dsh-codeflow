@@ -110,6 +110,17 @@ dsh plugin --profile tui add link:/absolute/path/to/dsh-codeflow
 dsh tui
 ```
 
+也可以不克隆，直接从 GitHub 安装：
+
+```bash
+dsh plugin --profile tui add "github:PenguinSoul/dsh-codeflow#main"
+```
+
+pnpm 12 会发现包内带的 skill，并询问是否把它链接进 agent skill 目录。DSH 不需要这条
+链接——适配器自己注册技能。选拒绝（在 profile 目录执行 `pnpm approve '!codeflow'`）
+或忽略提示即可；如果选择同意、而 profile 又没有 `skills.dirs`，下一次 `pnpm install`
+会失败。
+
 这个 bundle 提供 `codeflow` 技能，以及每个 markdown 文件对应的一条命令
 `/codeflow-<verb>`：`/codeflow-new "修复登录跳转"`、`/codeflow-plan`、
 `/codeflow-verify` 等等。DSH 的命令名只允许小写字母、数字、`_` 和 `-`，所以 Claude 的
