@@ -118,6 +118,9 @@ function checklistBody(body, evidence) {
 }
 
 function screenshotsBody(config, task) {
+  if (config.pr.screenshots === "none") {
+    return "Not applicable — no frontend changes.";
+  }
   if (config.pr.screenshots !== "manual" && config.pr.screenshots?.command) {
     return `Capture with \`${config.pr.screenshots.command}\`, then attach before/after images for \`${task.id}\`.`;
   }
