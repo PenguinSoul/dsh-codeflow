@@ -34,7 +34,7 @@
   },
   "pr": {
     "template": ".github/PULL_REQUEST_TEMPLATE.md",
-    "screenshots": "manual",
+    "screenshots": "none",
     "titlePrefix": "",
     "sections": {}
   },
