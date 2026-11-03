@@ -139,6 +139,17 @@ dsh plugin --profile tui add link:/absolute/path/to/dsh-codeflow
 dsh tui
 ```
 
+Or install straight from GitHub, without a local clone:
+
+```bash
+dsh plugin --profile tui add "github:PenguinSoul/dsh-codeflow#main"
+```
+
+pnpm 12 notices the skill the package ships and offers to link it into an agent
+skill directory. DSH does not need that link — the adapter registers the skill
+itself. Deny it (`pnpm approve '!codeflow'` in the profile) or ignore the notice;
+approving without a `skills.dirs` entry makes the next `pnpm install` fail.
+
 The bundle contributes the `codeflow` skill and one command per markdown file,
 named `/codeflow-<verb>`: `/codeflow-new "Fix the login redirect"`, `/codeflow-plan`,
 `/codeflow-verify`, and so on. DSH command names allow only lowercase letters,
