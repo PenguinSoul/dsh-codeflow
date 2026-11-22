@@ -81,6 +81,17 @@ test("readSkill registers the packaged skill with DSH-resolved paths", () => {
   assert.ok(skill.content.includes(`${installed}/bin/codeflow`));
 });
 
+test("the skill payload satisfies every field DSH validateDefinition requires", () => {
+  // Mirrors @deepseek-ai/dsh-skill's validateDefinition: registration accepts
+  // a partial payload, but skills.get() rejects anything missing a string
+  // source, provider, or content.
+  const skill = readSkill();
+  assert.equal(typeof skill.source, "string");
+  assert.ok(skill.source.length > 0);
+  assert.ok(skill.provider === undefined || typeof skill.provider === "string");
+  assert.equal(typeof skill.content, "string");
+});
+
 test("readCommands maps every command markdown to a valid DSH command", () => {
   const commands = readCommands();
   assert.equal(commands.length, 16);
