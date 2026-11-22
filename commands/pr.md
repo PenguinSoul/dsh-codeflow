@@ -1,9 +1,8 @@
 ---
 description: Render the PR body and create or update the pull request
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/bin/codeflow:*), Read
 ---
 
-Run `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" pr --json`.
+Run `"${CODEFLOW_ROOT}/bin/codeflow" pr --json`.
 
 It requires a task worktree on `task.branch`, fresh evidence, an approved self-review
 whose hash matches the packet, and a PR head equal to the verified HEAD. It fetches the

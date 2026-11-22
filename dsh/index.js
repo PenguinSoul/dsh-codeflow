@@ -3,21 +3,20 @@
  *
  * DSH bundle plugins are declared through `package.json`'s `dsh.bundle.patch`
  * field; the patch mounts this module as one cordis plugin. The adapter does
- * not re-implement the workflow. It reads the artifacts Claude Code already
- * loads — `skills/codeflow/SKILL.md` and `commands/*.md` — and registers them
- * with the two DSH seams that own embedded contribution:
+ * not re-implement the workflow. It reads the shared markdown sources —
+ * `skills/codeflow/SKILL.md` and `commands/*.md` — and registers them with
+ * the two DSH seams that own embedded contribution:
  *
  *  - `ctx.skills.register()` publishes the skill from memory, which is the
  *    documented channel for a skill that ships inside a plugin package;
  *  - `ctx.commands.register()` publishes one `/codeflow-<verb>` command per
  *    markdown file. The handler hands the adapted body to `agent.followup()`,
- *    the same mechanism `/goal` uses, so the model receives exactly the
- *    instructions Claude Code would have received.
+ *    the same mechanism `/goal` uses.
  *
- * Two Claude-only spellings are rewritten at load time instead of forking the
- * prose: `${CLAUDE_PLUGIN_ROOT}` becomes the installed package root, and the
- * `/codeflow:` command prefix becomes `/codeflow-` (DSH command names allow
- * only `[a-z0-9_-]`). Core state, gates, and evidence are untouched.
+ * Two spellings are rewritten at load time instead of forking the prose:
+ * `${CODEFLOW_ROOT}` becomes the installed package root, and the `/codeflow:`
+ * command prefix becomes `/codeflow-` (DSH command names allow only
+ * `[a-z0-9_-]`). Core state, gates, and evidence are untouched.
  *
  * The module imports Node built-ins only, so the package stays dependency-free
  * and every helper below is testable without a DSH installation.
@@ -30,7 +29,7 @@ import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
-/** Installed package root; what `${CLAUDE_PLUGIN_ROOT}` means at runtime. */
+/** Installed package root; what `${CODEFLOW_ROOT}` means at runtime. */
 export const packageRoot = fileURLToPath(new URL("../", import.meta.url));
 
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/u;
@@ -75,15 +74,15 @@ function unquote(value) {
 }
 
 /**
- * Rewrite the two Claude-only spellings for DSH.
+ * Rewrite the two spellings that DSH does not accept verbatim.
  * @param {string} text - skill or command markdown.
- * @param {string} [root] - package root substituted for `${CLAUDE_PLUGIN_ROOT}`.
+ * @param {string} [root] - package root substituted for `${CODEFLOW_ROOT}`.
  * @returns {string}
  */
 export function adapt(text, root = packageRoot) {
   const installed = root.replace(/[\\/]+$/u, "");
   return text
-    .replaceAll("${CLAUDE_PLUGIN_ROOT}", installed)
+    .replaceAll("${CODEFLOW_ROOT}", installed)
     .replaceAll("/codeflow:", "/codeflow-");
 }
 

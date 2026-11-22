@@ -4,18 +4,18 @@ type: goal-and-requirements
 status: draft
 title: codeflow — product goal and scope
 covers: product-goal product-audience product-principles product-capabilities product-non-goals success-metrics
-tags: [l1, workflow, claude-code, git]
+tags: [l1, workflow, dsh, git]
 ---
 
 # codeflow — product goal and scope
 
 ## Goal
 
-codeflow is a Claude Code plugin that turns a git repository into an **human-gated delivery workflow**:
+codeflow is a DeepSeek Harness (DSH) plugin that turns a git repository into an **human-gated delivery workflow**:
 humans make the decisions, and the machine executes the repeatable mechanics from
 task-spec to pull request, with evidence at every gate.
 
-It is a deterministic execution layer, not another agent. Claude supplies judgement,
+It is a deterministic execution layer, not another agent. The agent supplies judgement,
 prose, and code; `codeflow` supplies state, isolation, gates, evidence, and delivery.
 
 ## Problem
@@ -36,7 +36,7 @@ The result is agent work that feels fast but is expensive to trust.
 
 ## Audience
 
-- Developers using Claude Code on real git repositories.
+- Developers using DeepSeek Harness (DSH) on real git repositories.
 - Small teams with spec-first or agent-first workflows.
 - Maintainers who need reviewable evidence rather than agent assertions.
 - People who want guarded automation without handing merge authority to a model.
@@ -114,14 +114,14 @@ Only these are excluded by decision. Anything neither listed nor excluded is ope
 - **Auto-merge or auto-approval.** codeflow never merges and never approves a PR.
 - **Replacing code review.** The self-review packet makes review cheaper; it does not
   replace a reviewer.
-- **A second agent runtime.** Claude is the agent; codeflow is deterministic tooling.
+- **A second agent runtime.** The agent is the agent; codeflow is deterministic tooling.
 - **Issue-tracker sync.** Issues are referenced, not mirrored.
 - **Multi-repository orchestration.** One repository per invocation.
 - **MCP.** The plugin ships a CLI and invokes it by absolute path; an MCP adapter is a later, separate decision.
 - **Screenshot automation.** The PR body leaves an explicit placeholder unless the
   repository configures a capture command.
 - **Secret management.** codeflow stores no tokens and delegates GitHub auth to `gh`.
-- **An IDE or web UI.** The CLI, Claude commands, and Markdown artifacts are the UI.
+- **An IDE or web UI.** The CLI, DSH commands, and Markdown artifacts are the UI.
 - **Windows-native polish.** The CLI is portable Node, but WSL/Linux is the supported
   first platform.
 

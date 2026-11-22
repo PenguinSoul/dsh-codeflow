@@ -12,9 +12,9 @@ tags: [architecture, l1, workflow]
 
 ## Drivers
 
-- A Claude Code plugin must be installable as one unit and must not require a build
+- A DSH bundle plugin must be installable as one unit and must not require a build
   step or a package install.
-- The deterministic mechanics must be usable without Claude: a human can run the same
+- The deterministic mechanics must be usable without the agent: a human can run the same
   CLI by hand, and CI can run it later.
 - The system must survive reloads, multiple sessions, rebases, and upgrades without
   losing state or inventing results.
@@ -24,10 +24,9 @@ tags: [architecture, l1, workflow]
 ## Topology
 
 ```
-Claude Code
+DeepSeek Harness (DSH)
   ├─ commands/*.md          thin UX; call the CLI and read its JSON
-  ├─ skills/codeflow/       policy: human boundary, human gates, red lines
-  └─ hooks/session-start    inject the active task summary
+  └─ skills/codeflow/       policy: human boundary, human gates, red lines
             │
             ▼
        bin/codeflow         deterministic CLI (Node ESM, no deps)
@@ -38,7 +37,7 @@ Claude Code
                          config+state    per task
 ```
 
-DSH reaches the same core through a different door: `dsh/` is a bundle plugin
+DSH reaches the core through one door: `dsh/` is a bundle plugin
 (`package.json` → `dsh.bundle.patch`) whose adapter registers the skill and the
 commands with `ctx.skills.register()` and `ctx.commands.register()`. It reads the
 same `skills/codeflow/SKILL.md` and `commands/*.md`, so the workflow has one
@@ -50,7 +49,7 @@ Three rings:
    delivery. They never call an LLM.
 2. **Contract** — the versioned JSON envelope and schemas in `docs/contracts.md`.
    Commands and tests consume this; human output is only a renderer of it.
-3. **Shell** — Claude commands, the skill, the session hook, and the DSH adapter.
+3. **Shell** — the commands, the skill, and the DSH adapter.
    They hold no state of their own and never recompute what the CLI reports.
 
 There is no MCP server, no daemon, and no database.
@@ -110,7 +109,7 @@ Rules:
 ### D1 — The CLI is the only state owner
 
 State transitions, evidence, approvals, and task metadata live in the CLI's task
-store. Claude commands and the skill read `codeflow status --json`; they never edit
+store. The commands and the skill read `codeflow status --json`; they never edit
 state files or infer state from chat.
 
 **Why:** a reload, a second session, or a different machine must reconstruct the same
@@ -138,7 +137,7 @@ MCP server.
 transport work without changing the workflow behavior.
 
 **Rejected:** MCP-first design; a hybrid CLI plus MCP from day one. Revisit only when
-Claude Desktop or non-Claude-Code clients become a requirement.
+non-DSH clients become a requirement.
 
 ### D4 — Human gates; no merge
 
@@ -328,17 +327,15 @@ best-effort read. `doctor` reports the versions it finds.
 
 **Rejected:** implicit migrations; reading unknown shapes best-effort.
 
-### D18 — The CLI is the integration surface; commands invoke it from the plugin root
+### D18 — The CLI is the integration surface; commands invoke it from the package root
 
-Claude Code does not put a plugin's `bin/` on the Bash tool's `PATH` (tested on
-2.1.278: `command -v codeflow` finds nothing, and `CLAUDE_PLUGIN_ROOT` is not in the
-session environment). Commands therefore invoke
-`"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" <verb>` and grant exactly that path with
-`Bash(${CLAUDE_PLUGIN_ROOT}/bin/codeflow:*)`. Claude Code substitutes the variable in
-command content, in skill content, and in `allowed-tools`; a probe plugin confirmed
-all three.
+The agent's Bash tool has no reason to have the package's `bin/` on `PATH`:
+`command -v codeflow` finds nothing in a fresh session. Commands therefore invoke
+`"${CODEFLOW_ROOT}/bin/codeflow" <verb>`, and the DSH adapter substitutes the
+variable in command and skill content at registration, so the model only ever sees
+a real path.
 
-**Why:** one implementation, testable without Claude, and commands stay thin.
+**Why:** one implementation, testable without the agent, and commands stay thin.
 
 **Rejected:** asking the human to export `PATH` (works only until the next shell, and
 breaks under the versioned marketplace cache path); granting plain `Bash` and
@@ -361,8 +358,7 @@ every box; hiding test changes.
 ### D20 — Tests never touch the network or a real GitHub
 
 Unit and integration tests use temporary repositories, fake gates, and a fake `gh` on
-`PATH`. `claude plugin validate` checks the plugin manifest. A real GitHub call is a
-manual smoke test, never a CI dependency.
+`PATH`. A real GitHub call is a manual smoke test, never a CI dependency.
 
 **Why:** deterministic, fast, and safe; a test suite that needs credentials is a test
 suite that stops running.
@@ -387,16 +383,16 @@ the checkout; creating a PR without a matching head.
 ### D22 — DSH gets an adapter, not a fork
 
 DeepSeek Harness loads a bundle through `package.json`'s `dsh.bundle.patch`.
-`dsh/index.js` reads the same `skills/codeflow/SKILL.md` and `commands/*.md` that
-Claude Code loads, registers the skill with `ctx.skills.register()`, and registers
-one `/codeflow-<verb>` command per file whose handler queues the adapted body with
-`agent.followup()`. Only two Claude-only spellings are rewritten:
-`${CLAUDE_PLUGIN_ROOT}` becomes the installed package root, and the `/codeflow:`
-prefix becomes `/codeflow-` because DSH command names allow only `[a-z0-9_-]`.
+`dsh/index.js` reads the shared `skills/codeflow/SKILL.md` and `commands/*.md`,
+registers the skill with `ctx.skills.register()`, and registers one
+`/codeflow-<verb>` command per file whose handler queues the adapted body with
+`agent.followup()`. Two spellings are rewritten: `${CODEFLOW_ROOT}` becomes the
+installed package root, and the `/codeflow:` prefix becomes `/codeflow-` because
+DSH command names allow only `[a-z0-9_-]`.
 
 **Why:** the workflow prose is the product. A copied or re-authored second version
 drifts, and pointing DSH's filesystem skill provider at `skills/` would serve the
-literal `${CLAUDE_PLUGIN_ROOT}`, a path that does not exist under DSH.
+literal `${CODEFLOW_ROOT}`, a path that does not exist under DSH.
 
 **Rejected:** a forked skill directory; a parallel JS command library; changing the
 CLI or the state machine for DSH.
@@ -746,7 +742,7 @@ action.
    to `pr`; a fake `gh` on `PATH` for PR paths and a missing-`gh` path.
 4. **Safety** — dirty tree, stale approval, untrusted config, lock contention, rebase
    conflict, timeout, schema mismatch, path traversal.
-5. **Plugin** — `claude plugin validate`, command frontmatter, skill red lines.
+5. **Plugin** — command source checks and skill red lines.
 6. **Manual smoke** — one real repository and one real `gh` PR, documented, never CI.
 
 No test touches the network or a real GitHub account.
@@ -755,7 +751,7 @@ No test touches the network or a real GitHub account.
 
 These are explicit later decisions, not omissions:
 
-- MCP adapter for Claude Desktop or other clients.
+- MCP adapter for non-DSH clients.
 - Screenshot capture automation.
 - Issue-tracker integration.
 - Multi-repository orchestration.

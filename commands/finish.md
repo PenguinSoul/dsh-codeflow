@@ -1,9 +1,8 @@
 ---
 description: Remove the task worktree after the human confirms the merge
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/bin/codeflow:*)
 ---
 
-Run `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" finish --json` only after the human confirms the merge.
+Run `"${CODEFLOW_ROOT}/bin/codeflow" finish --json` only after the human confirms the merge.
 
 `finish` only accepts a task with an open or merged pull request. For a task that will
 not ship, use `/codeflow:abandon` instead. When `gh` is available and the task has a

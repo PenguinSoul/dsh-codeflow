@@ -27,10 +27,10 @@ Implementation starts only after these are accepted:
 - [ ] Evidence freshness (tree-based, rebase-safe).
 - [ ] Command surface and JSON contracts.
 - [ ] Artifact layout and state machine.
-- [ ] Plugin shell (commands, skill, hook, `bin/`).
+- [ ] Plugin shell (commands, skill, `bin/`).
 - [ ] Implementation order.
 
 ## Design principles in one line
 
-Humans decide; the CLI executes; Claude supplies judgement; evidence is the only proof;
+Humans decide; the CLI executes; the agent supplies judgement; evidence is the only proof;
 the base branch is never touched; nothing merges without a human.

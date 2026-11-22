@@ -5,7 +5,7 @@ status: draft
 title: codeflow — integrated design
 parent: architecture
 covers: summary l1-flow commands artifacts state trust evidence approval attention plugin modules milestones
-tags: [design, l1, workflow, claude-code]
+tags: [design, l1, workflow, dsh]
 ---
 
 # codeflow — integrated design
@@ -18,11 +18,11 @@ This is the readable integration of the design. The authoritative details live i
 
 ## Summary
 
-codeflow is a Claude Code plugin that turns a git repository into an **human-gated delivery workflow**:
+codeflow is a DeepSeek Harness (DSH) plugin that turns a git repository into an **human-gated delivery workflow**:
 humans decide, and a deterministic CLI executes the mechanics from task-spec to pull
 request, recording evidence at every gate.
 
-- **Claude** supplies judgement, prose, and code.
+- **The agent** supplies judgement, prose, and code.
 - **codeflow** supplies state, isolation, gates, evidence, and delivery.
 - **The human** supplies trust, design approval, plan approval, self-review, and merge.
 
@@ -56,13 +56,13 @@ automation (the agent fixes review comments) and autonomous merge are out of sco
    refused. Approvals are kept per config hash, so a task-branch config can be reviewed
    separately.
 3. **Start a task.** `/codeflow:new "fix the login redirect"` creates a task and a
-   lightweight `TASK.md`. Claude interviews the human, fills Request / Product / Design /
+   lightweight `TASK.md`. The agent interviews the human, fills Request / Product / Design /
    Durable updates / Deferrals, and runs `/codeflow:approve design`.
 4. **Plan.** `/codeflow:plan` writes commit-sized steps with a verification line and a
    Conventional Commit subject. The human approves the plan; progress is recorded
    separately.
 5. **Implement.** `/codeflow:start` creates `codeflow/<id>` and a worktree under
-   `~/.local/state/codeflow/worktrees/<repo>/<id>`. Claude implements step by step.
+   `~/.local/state/codeflow/worktrees/<repo>/<id>`. The agent implements step by step.
    Commands work from the project root or the task worktree.
 6. **Verify.** `/codeflow:verify` loads the config from the task worktree, checks trust
    for that exact hash, runs the gates, captures branch-bound evidence, and scans the
@@ -101,7 +101,7 @@ automation (the agent fixes review comments) and autonomous merge are out of sco
 | `codeflow pr` | `/codeflow:pr` | Rebase, render body, push, create/update PR |
 | `codeflow watch` | `/codeflow:watch` | Read-only CI snapshot or bounded wait |
 | `codeflow comments` | `/codeflow:comments` | Read-only review threads |
-| `codeflow status` | `/codeflow:status` | Human or `--json` status; `--brief` for hooks |
+| `codeflow status` | `/codeflow:status` | Human or `--json` status |
 | `codeflow resume` | `/codeflow:resume` | Resume a blocked task |
 | `codeflow finish` | `/codeflow:finish` | Verify the merge, then remove the worktree; requires an open or merged PR |
 | `codeflow abandon` | `/codeflow:abandon` | Discard a task that will not ship |
@@ -197,23 +197,21 @@ spotlight for the human, never an automatic verdict.
 
 ```text
 codeflow/
-  .claude-plugin/plugin.json
-  bin/codeflow                 # invoked via ${CLAUDE_PLUGIN_ROOT}
+  package.json                 # dsh.bundle.patch → the adapter
+  dsh/index.js                 # registers the skill and commands with DSH
+  bin/codeflow                 # invoked via ${CODEFLOW_ROOT}
   src/*.mjs                    # zero-dependency Node ESM
   commands/*.md                # thin wrappers over the CLI
   skills/codeflow/SKILL.md     # workflow policy, gates, red lines
-  hooks/hooks.json             # SessionStart → codeflow status --brief
   test/*.test.mjs              # node:test
   docs/                        # this design
   README.md
 ```
 
-The manifest declares `name`, `displayName`, `version`, `description`, `license`,
-`skills`, `commands`, and `hooks`; it declares no MCP server. Every command has
-`description`, `argument-hint`, and `allowed-tools: Bash(codeflow:*)`; its body only
-calls the CLI and renders the JSON. The `SessionStart` hook matches
-`startup|clear|compact`, runs `codeflow status --brief`, and never fails a session when
-codeflow is not configured.
+`package.json` declares `main` (the adapter) and `dsh.bundle.patch`; it declares no
+MCP server. Every command has `description` and, where useful, `argument-hint`; its
+body only calls the CLI and renders the JSON. The adapter registers both seams at
+profile boot; nothing runs outside a session.
 
 The skill is the policy layer. It states:
 
@@ -253,9 +251,9 @@ This is the plan skeleton; the detailed plan comes after this design is approved
 - **M3 — Trust, gates, evidence, attention.** `trust`, `verify`, `review` data.
 - **M4 — Git isolation.** `start`, `resume`, `finish`, locks, worktree safety.
 - **M5 — Delivery.** `self-review`, `pr`, `watch`, `comments`, fake `gh` tests.
-- **M6 — Plugin shell.** Manifest, commands, skill, hook, README.
+- **M6 — Plugin shell.** Bundle manifest, commands, skill, README.
 - **M7 — End-to-end and validation.** Temp-repo golden path, safety tests,
-  `claude plugin validate`, manual smoke.
+  manual smoke.
 
 ## Rejected alternatives
 

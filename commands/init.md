@@ -1,9 +1,8 @@
 ---
 description: Initialize codeflow in the current git repository
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/bin/codeflow:*), Read
 ---
 
-Run `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" init --json`.
+Run `"${CODEFLOW_ROOT}/bin/codeflow" init --json`.
 
 Show the detected gates and the config path. Do not run any gate. If the repo
 already has a config, show the warning and ask before using `--force`.

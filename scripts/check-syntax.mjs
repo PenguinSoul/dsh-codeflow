@@ -31,7 +31,6 @@ const files = [
   ...walk(join(root, "src")),
   ...walk(join(root, "dsh")),
   ...walk(join(root, "test")),
-  ...walk(join(root, "hooks")),
   ...walk(join(root, "scripts")),
 ];
 

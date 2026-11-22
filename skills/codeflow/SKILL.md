@@ -28,15 +28,15 @@ The CLI never merges. Do not run `gh pr merge` or approve a PR.
 
 ## The binary
 
-The CLI is not on `PATH`. It lives at `${CLAUDE_PLUGIN_ROOT}/bin/codeflow`, and
-Claude Code substitutes that variable in this file, so every command below can be
-copied literally.
+The CLI is not on `PATH`. It lives at `${CODEFLOW_ROOT}/bin/codeflow`, and
+the DSH adapter substitutes that variable when it registers this file, so
+every command below reaches the model with a real path.
 
 ## Hydrate then act
 
 The CLI is the only state owner. Chat memory is not state.
 
-- Run `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" status --json` before every transition.
+- Run `"${CODEFLOW_ROOT}/bin/codeflow" status --json` before every transition.
 - Re-read `plan.json` / `PLAN.md` and the evidence before acting on them.
 - Never edit `.codeflow/state/` by hand.
 - Never infer the current step from the conversation.
@@ -65,7 +65,7 @@ These are hard stops, not advice.
 - **Never approve on your own.** Design, plan, and self-review approvals belong
   to the human. Ask, then run the approval command.
 - **Never fabricate evidence.** A gate result exists only if
-  `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" verify` recorded it. "Tests pass" without a
+  `"${CODEFLOW_ROOT}/bin/codeflow" verify` recorded it. "Tests pass" without a
   JSON result is a lie. A repository with no checks reports `none`; do not call it
   green.
 - **Never skip a gate.** Not "small", not "obvious", not "already ran once" when
@@ -87,7 +87,7 @@ These are hard stops, not advice.
   worktree; a `gh` failure is blocked, not confirmation. Use `abandon` only when the
   human explicitly decides the task will not ship, never to escape a gate or review.
 - **Never create a delivery artifact out of band.** A PR is pushed and created
-  by `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" pr`, never by hand, never through the
+  by `"${CODEFLOW_ROOT}/bin/codeflow" pr`, never by hand, never through the
   GitHub API, never by a second tool. If a human did it anyway, stop and ask: the
   task has no recorded delivery, and `finish` will not pretend it does.
 - **Never guess at a conflict.** A rebase conflict, ambiguous requirement, or
@@ -97,7 +97,7 @@ These are hard stops, not advice.
 
 ## Before and after every step
 
-1. Read `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" status --json`.
+1. Read `"${CODEFLOW_ROOT}/bin/codeflow" status --json`.
 2. Do the single command that matches the next step.
 3. Report the result, the attention items, and the next command.
 4. Stop at every human gate.
@@ -122,7 +122,7 @@ Common codes:
 - `E_STATE_TRACKED`: stop. Local state must not be committed, and a repository
   cannot grant its own trust.
 - `E_WORKTREE_MISSING` / `E_WORKTREE_MISMATCH`: stop. Run
-  `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" start` or check out the task branch; never
+  `"${CODEFLOW_ROOT}/bin/codeflow" start` or check out the task branch; never
   verify the primary checkout as the task tree.
 - `E_STATE_CONFLICT`: the task is not in the right state; read `status`.
 - `E_APPROVAL_STALE`: an approved artifact or the self-review packet changed;
@@ -145,5 +145,5 @@ must land in the repository's specs, README, or ADRs before the PR.
 ## The one-line test
 
 If you are about to do something irreversible, ask: did a human approve this
-exact artifact, and did `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" verify` record the
+exact artifact, and did `"${CODEFLOW_ROOT}/bin/codeflow" verify` record the
 evidence for this exact tree? If not, stop.

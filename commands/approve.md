@@ -1,11 +1,10 @@
 ---
 description: Approve the design, plan, or self-review by hash
 argument-hint: "design|plan|self-review"
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/bin/codeflow:*), Read
 ---
 
 Read the artifact first: `TASK.md` for design, `plan.json` for plan, or
 `REVIEW.md` for self-review. Ask the human to confirm it is what they want.
 
-Only then run `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" approve $ARGUMENTS --json`. Never approve on your own,
+Only then run `"${CODEFLOW_ROOT}/bin/codeflow" approve $ARGUMENTS --json`. Never approve on your own,
 and re-run the matching step if the artifact changed.
