@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import {
@@ -46,17 +46,8 @@ test("the DSH bundle manifest wires the adapter and the patch row", () => {
   assert.match(patch, /name:\s*codeflow/u);
 });
 
-test("the Claude plugin manifest keeps pointing at the original components", () => {
-  const manifest = JSON.parse(
-    readFileSync(join(root, ".claude-plugin/plugin.json"), "utf8"),
-  );
-  assert.equal(manifest.skills, "./skills/");
-  assert.equal(manifest.commands, "./commands/");
-  assert.equal("dsh" in manifest, false);
-});
-
-test("adapt rewrites the two Claude-only spellings", () => {
-  const text = "run ${CLAUDE_PLUGIN_ROOT}/bin/codeflow; next /codeflow:approve plan";
+test("adapt rewrites the two spellings", () => {
+  const text = "run ${CODEFLOW_ROOT}/bin/codeflow; next /codeflow:approve plan";
   assert.equal(
     adapt(text, "/opt/plugin/"),
     "run /opt/plugin/bin/codeflow; next /codeflow-approve plan",
@@ -76,7 +67,7 @@ test("readSkill registers the packaged skill with DSH-resolved paths", () => {
   assert.equal(skill.name, "codeflow");
   assert.ok(skill.description.length > 0);
   assert.ok(skill.content.startsWith("# Codeflow"));
-  assert.equal(skill.content.includes("${CLAUDE_PLUGIN_ROOT}"), false);
+  assert.equal(skill.content.includes("${CODEFLOW_ROOT}"), false);
   assert.equal(skill.content.includes("/codeflow:"), false);
   assert.ok(skill.content.includes(`${installed}/bin/codeflow`));
 });
@@ -101,10 +92,45 @@ test("readCommands maps every command markdown to a valid DSH command", () => {
   for (const command of commands) {
     assert.match(command.name, /^codeflow-[a-z0-9-]+$/u);
     assert.ok(command.description.length > 0);
-    assert.equal(command.body.includes("${CLAUDE_PLUGIN_ROOT}"), false);
+    assert.equal(command.body.includes("${CODEFLOW_ROOT}"), false);
     assert.equal(command.body.includes("/codeflow:"), false);
   }
   assert.ok(commands.some((command) => command.hint !== undefined));
+});
+
+test("every command grants and calls the CLI by its resolved root path", () => {
+  const files = readdirSync(join(root, "commands")).filter((name) =>
+    name.endsWith(".md"),
+  );
+  assert.ok(files.length >= 15);
+  for (const name of files) {
+    const text = readFileSync(join(root, "commands", name), "utf8");
+    assert.match(
+      text,
+      /"\$\{CODEFLOW_ROOT\}\/bin\/codeflow" /,
+      `${name} never calls the CLI by its resolved root path`,
+    );
+    assert.doesNotMatch(
+      text,
+      /`codeflow\s/,
+      `${name} still invokes a bare codeflow`,
+    );
+    assert.doesNotMatch(
+      text,
+      /gh pr merge/,
+      `${name} must not instruct a merge`,
+    );
+  }
+});
+
+test("the skill carries the human boundary and red lines", () => {
+  const skill = readSkill();
+  assert.match(skill.content, /Hydrate then act/);
+  assert.match(skill.content, /Never merge/);
+  assert.match(skill.content, /Never approve on your own/);
+  assert.match(skill.content, /Never fabricate evidence/);
+  assert.match(skill.content, /Never weaken a gate/);
+  assert.match(skill.content, /Never touch the base branch/);
 });
 
 test("apply registers one skill and every command", () => {

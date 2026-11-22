@@ -6,9 +6,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
 
-codeflow 是一个很小的 CLI 和 Claude Code 插件，用来和 coding agent 一起干活，但不用把整个仓库交给它。
+codeflow 是一个很小的 CLI 和 DeepSeek Harness (DSH) 插件，用来和 coding agent 一起干活，但不用把整个仓库交给它。
 
-它把一个任务从一段简短的 spec，带到 plan、隔离的 worktree、项目检查、self-review，最后开一个 PR。Claude 负责读代码、写代码；你负责批准 design、plan、self-review 和 merge。真正跑过的检查会留在磁盘上，PR 描述从这些记录生成，而不是靠 agent 回忆。
+它把一个任务从一段简短的 spec，带到 plan、隔离的 worktree、项目检查、self-review，最后开一个 PR。agent 负责读代码、写代码；你负责批准 design、plan、self-review 和 merge。真正跑过的检查会留在磁盘上，PR 描述从这些记录生成，而不是靠 agent 回忆。
 
 它不是 coding agent，也不会 merge。它是 agent 工作外面那层有点无聊、但需要有人认真做的文书工作。
 
@@ -74,33 +74,10 @@ done`。遇到 rebase 冲突、gate 失败、worktree 丢失之类的问题，�
 
 - Node.js 20 或更新
 - git
-- Claude Code 或 DeepSeek Harness (DSH)
+- DeepSeek Harness (DSH)
 - `gh`：可选；没有它时，`pr` 会推分支并打印 compare URL
 
 ## 安装
-
-```bash
-git clone https://github.com/PenguinSoul/dsh-codeflow.git
-cd dsh-codeflow
-claude --plugin-dir .
-```
-
-或者从仓库作为 marketplace 安装：
-
-```text
-/plugin install codeflow --marketplace PenguinSoul/dsh-codeflow
-```
-
-实测 Claude Code 2.1.278 不会把插件的 `bin/` 加入 Bash 工具的 `PATH`，所以命令统一通过
-`${CLAUDE_PLUGIN_ROOT}` 调用 CLI，授权规则也只匹配这个路径。不需要额外 export 任何东西。
-
-想在 Claude Code 之外手动调用，直接用检出目录或安装缓存里的可执行文件：
-
-```bash
-/path/to/codeflow/bin/codeflow --version
-```
-
-## 在 DeepSeek Harness (DSH) 中使用
 
 DSH 把插件装进 profile，而不是项目。把这个检出作为 bundle 加进去，然后重启 profile：
 
@@ -123,38 +100,35 @@ pnpm 12 会发现包内带的 skill，并询问是否把它链接进 agent skill
 
 这个 bundle 提供 `codeflow` 技能，以及每个 markdown 文件对应的一条命令
 `/codeflow-<verb>`：`/codeflow-new "修复登录跳转"`、`/codeflow-plan`、
-`/codeflow-verify` 等等。DSH 的命令名只允许小写字母、数字、`_` 和 `-`，所以 Claude 的
-前缀 `/codeflow:` 变成 `/codeflow-`。两边读的是同一批文件；适配器把
-`${CLAUDE_PLUGIN_ROOT}` 替换成实际安装路径，模型不会拿到一个不存在的路径。
+`/codeflow-verify` 等等。DSH 的命令名只允许小写字母、数字、`_` 和 `-`，所以源文件里
+的规范前缀 `/codeflow:` 注册时变成 `/codeflow-`。适配器把 `${CODEFLOW_ROOT}`
+替换成实际安装路径，模型不会拿到一个不存在的路径。
 
-`codeflow` 本身没有变。CLI、状态机、门禁和证据模型只有一份实现，区别只在入口。
+`codeflow` 本身只有一份实现。CLI、状态机、门禁和证据模型，不管从哪个入口进来，
+行为都一致。
 
-`SessionStart` hook 不会自动挂载。要在 DSH 里运行它，在 profile 的
-`cordis.patch.yml` 里挂上 Claude hooks 桥：
+想在 agent 之外手动调用，直接用检出目录或安装缓存里的可执行文件：
 
-```yaml
-- name: '@deepseek-ai/dsh-hooks-claude-code'
-  config:
-    configPath: /absolute/path/to/dsh-codeflow/hooks/hooks.json
-    pluginRoot: /absolute/path/to/dsh-codeflow
+```bash
+/path/to/codeflow/bin/codeflow --version
 ```
 
 ## 快速开始
 
-在 Claude Code 里：
+在 DSH 提示符里：
 
 ```text
-/codeflow:init
-/codeflow:trust
-/codeflow:new "修复登录重定向"
-/codeflow:approve design
-/codeflow:plan
-/codeflow:approve plan
-/codeflow:start
-/codeflow:verify
-/codeflow:self-review
-/codeflow:approve self-review
-/codeflow:pr
+/codeflow-init
+/codeflow-trust
+/codeflow-new "修复登录重定向"
+/codeflow-approve design
+/codeflow-plan
+/codeflow-approve plan
+/codeflow-start
+/codeflow-verify
+/codeflow-self-review
+/codeflow-approve self-review
+/codeflow-pr
 ```
 
 在 CLI 里：
@@ -301,7 +275,6 @@ worktree 默认在 `~/.local/state/codeflow/worktrees/<repo>/<task>`。每个任
 ```bash
 npm test                  # 122 个测试：临时仓库、fake gate、fake gh
 npm run check             # 对每个源文件执行 node --check
-claude plugin validate .  # manifest、commands、hooks、marketplace
 ```
 
 CI 在 Node 20 和 22 上跑 `npm test` 和 `npm run check`。测试不联网；真实 GitHub 路径用私有仓库做过手动 smoke。
@@ -316,7 +289,7 @@ CI 在 Node 20 和 22 上跑 `npm test` 和 `npm run check`。测试不联网；
 
 ## 贡献
 
-`main` 已开启分支保护。所有改动都通过 PR，并跑 Node 20/22 的检查；文档类 PR 可以很小。开 PR 前请跑 `npm test`、`npm run check` 和 `claude plugin validate .`。不要为了让改动通过而弱化测试或跳过人工闸。
+`main` 已开启分支保护。所有改动都通过 PR，并跑 Node 20/22 的检查；文档类 PR 可以很小。开 PR 前请跑 `npm test` 和 `npm run check`。不要为了让改动通过而弱化测试或跳过人工闸。
 
 ## 许可证
 

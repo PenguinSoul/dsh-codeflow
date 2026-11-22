@@ -6,11 +6,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
 
-codeflow is a small CLI and Claude Code plugin for working with a coding agent
-without handing it the whole repository.
+codeflow is a small CLI and DeepSeek Harness (DSH) plugin for working with a
+coding agent without handing it the whole repository.
 
 It takes one task from a short written spec, through a plan, an isolated
-worktree, the project's checks, a self-review, and a pull request. Claude does
+worktree, the project's checks, a self-review, and a pull request. The agent does
 the reading, writing, and coding. You approve the design, the plan, the
 self-review, and the merge. The checks that actually ran are recorded, and the
 PR body is built from those records instead of from the agent's memory.
@@ -100,35 +100,10 @@ worktree. If `.codeflow/state` is tracked by git, every command refuses to run.
 
 - Node.js 20 or newer
 - git
-- Claude Code or DeepSeek Harness (DSH)
+- DeepSeek Harness (DSH)
 - `gh` — optional; without it, `pr` pushes the branch and prints a compare URL
 
 ## Install
-
-```bash
-git clone https://github.com/PenguinSoul/dsh-codeflow.git
-cd dsh-codeflow
-claude --plugin-dir .
-```
-
-Or install from the repository as a marketplace:
-
-```text
-/plugin install codeflow --marketplace PenguinSoul/dsh-codeflow
-```
-
-Claude Code does not put a plugin's `bin/` directory on the Bash tool's `PATH`
-(tested on 2.1.278), so the commands invoke the CLI through
-`${CLAUDE_PLUGIN_ROOT}` and grant exactly that path. Nothing needs to be exported.
-
-To call the CLI yourself, outside Claude Code, use the checkout or the installed
-cache:
-
-```bash
-/path/to/codeflow/bin/codeflow --version
-```
-
-## Use with DeepSeek Harness (DSH)
 
 DSH installs a plugin into a profile rather than a project. Add this checkout as a
 bundle, then restart the profile:
@@ -153,39 +128,36 @@ approving without a `skills.dirs` entry makes the next `pnpm install` fail.
 The bundle contributes the `codeflow` skill and one command per markdown file,
 named `/codeflow-<verb>`: `/codeflow-new "Fix the login redirect"`, `/codeflow-plan`,
 `/codeflow-verify`, and so on. DSH command names allow only lowercase letters,
-digits, `_` and `-`, so the Claude prefix `/codeflow:` becomes `/codeflow-`. Both
-surfaces read the same files; the adapter rewrites `${CLAUDE_PLUGIN_ROOT}` to the
-installed package root, so the model is never told to run a path that does not exist.
+digits, `_` and `-`, so the source's canonical `/codeflow:` prefix becomes
+`/codeflow-`. The adapter rewrites `${CODEFLOW_ROOT}` to the installed package
+root, so the model is never told to run a path that does not exist.
 
-`codeflow` itself is unchanged. The CLI, the state machine, the gates, and the
-evidence model are one implementation; only the front door differs.
+`codeflow` itself is one implementation. The CLI, the state machine, the gates,
+and the evidence model behave identically however you reach them.
 
-The `SessionStart` hook is not mounted automatically. To run it under DSH, mount the
-Claude hooks bridge in the profile's `cordis.patch.yml`:
+To call the CLI yourself, outside the agent, use the checkout or the installed
+cache:
 
-```yaml
-- name: '@deepseek-ai/dsh-hooks-claude-code'
-  config:
-    configPath: /absolute/path/to/dsh-codeflow/hooks/hooks.json
-    pluginRoot: /absolute/path/to/dsh-codeflow
+```bash
+/path/to/codeflow/bin/codeflow --version
 ```
 
 ## A quick run
 
-From Claude Code:
+From the DSH prompt:
 
 ```text
-/codeflow:init
-/codeflow:trust
-/codeflow:new "Fix the login redirect"
-/codeflow:approve design
-/codeflow:plan
-/codeflow:approve plan
-/codeflow:start
-/codeflow:verify
-/codeflow:self-review
-/codeflow:approve self-review
-/codeflow:pr
+/codeflow-init
+/codeflow-trust
+/codeflow-new "Fix the login redirect"
+/codeflow-approve design
+/codeflow-plan
+/codeflow-approve plan
+/codeflow-start
+/codeflow-verify
+/codeflow-self-review
+/codeflow-approve self-review
+/codeflow-pr
 ```
 
 From the CLI:
@@ -346,9 +318,8 @@ The design notes live in [`docs/`](docs/):
 ## Development
 
 ```bash
-npm test                  # 122 tests: temporary repos, fake gates, fake gh
+npm test                  # temporary repos, fake gates, fake gh
 npm run check             # node --check on every source file
-claude plugin validate .  # manifest, commands, hooks, marketplace
 ```
 
 CI runs `npm test` and `npm run check` on Node 20 and 22. Tests stay offline; the
@@ -368,8 +339,8 @@ Known limits:
 ## Contributing
 
 `main` is protected. Every change goes through a pull request and the Node 20/22
-checks; docs-only PRs are fine and can be small. Run `npm test`, `npm run check`, and
-`claude plugin validate .` before opening the PR. Don't weaken a test or skip a human
+checks; docs-only PRs are fine and can be small. Run `npm test` and
+`npm run check` before opening the PR. Don't weaken a test or skip a human
 gate to get a change through.
 
 ## License

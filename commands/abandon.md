@@ -1,9 +1,8 @@
 ---
 description: Discard a task that will not ship
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/bin/codeflow:*)
 ---
 
-Run `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" abandon --confirm --json` only when the human has explicitly decided
+Run `"${CODEFLOW_ROOT}/bin/codeflow" abandon --confirm --json` only when the human has explicitly decided
 the task will not ship.
 
 It removes the task worktree, optionally deletes the local branch, and marks the task

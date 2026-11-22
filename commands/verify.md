@@ -1,9 +1,8 @@
 ---
 description: Run the gates and record tree-hash evidence
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/bin/codeflow:*), Read, Write, Edit
 ---
 
-Run `"${CLAUDE_PLUGIN_ROOT}/bin/codeflow" verify --json` in the task worktree or the project root.
+Run `"${CODEFLOW_ROOT}/bin/codeflow" verify --json` in the task worktree or the project root.
 
 It loads the config from the task worktree and requires an approval for that exact
 config hash. Use `--full` for full gates. Use `--live` only with explicit human
