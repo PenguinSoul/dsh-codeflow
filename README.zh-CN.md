@@ -6,291 +6,143 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
 
-codeflow 是一个很小的 CLI 和 DeepSeek Harness (DSH) 插件，用来和 coding agent 一起干活，但不用把整个仓库交给它。
+codeflow 是一个很小的 CLI 和 [DeepSeek Harness](https://github.com/deepseek-ai) (DSH)
+插件：让 coding agent 在真实仓库上干活，但仓库永远不属于它。agent 拿到的是一个任务、
+一个隔离的 worktree、一组你批准过的检查；交回来的是 plan、证据和一个 PR。你交回的是决策。
 
-它把一个任务从一段简短的 spec，带到 plan、隔离的 worktree、项目检查、self-review，最后开一个 PR。agent 负责读代码、写代码；你负责批准 design、plan、self-review 和 merge。真正跑过的检查会留在磁盘上，PR 描述从这些记录生成，而不是靠 agent 回忆。
-
-它不是 coding agent，也不会 merge。它是 agent 工作外面那层有点无聊、但需要有人认真做的文书工作。
-
-**状态：** 早期可用，刻意做得很小。目前主要支持 WSL/Linux；Node 20 以上。
-
-## 为什么做这个
-
-用 agent 改真实仓库时，我反复遇到这些问题：
-
-- 刷新一下，没人知道任务做到哪了。
-- 检查是 agent 想起什么跑什么。
-- PR 描述是凭记忆写的，不是从结果来的。
-- 两个 agent 在同一个工作区里互相踩。
-- reviewer 看得到 diff，但看不到验证了什么、改了哪些测试、哪里最该先看。
-
-codeflow 把任务状态放到磁盘上，给每个任务一个独立 worktree，把 gate 命令摆到明面上，再把结果带进 PR。
-
-## 哪些事仍然由你决定
-
-1. codeflow 可以运行哪些命令。
-2. 写代码前的 task-spec。
-3. 计划。
-4. self-review 包。
-5. 合并。
-
-codeflow 不 merge，不 approve PR，也不会把“没跑”的检查写成“通过”。
-
-## 流程
-
-```mermaid
-flowchart LR
-  A[init] --> B[trust]
-  B --> C[new]
-  C --> D[approve design]
-  D --> E[plan]
-  E --> F[approve plan]
-  F --> G[start / worktree]
-  G --> H[verify]
-  H --> I[self-review]
-  I --> J[approve self-review]
-  J --> K[pr]
-  K --> L[watch / comments]
-  L --> M[你合并]
-  M --> N[finish]
+```text
+$ codeflow status
+task   42-fix-login-redirect   active
+step   3 of 5  —  guard the redirect when the token is present
+next   codeflow verify   (fast gates: lint, unit)
 ```
 
-任务状态是 `created → designed → planned → active → verified → pr_open →
-done`。遇到 rebase 冲突、gate 失败、worktree 丢失之类的问题，任务会变成
-`blocked`，等你处理。`resume` 再继续；它不会自己重试，也不会自己解冲突。
+codeflow 声称发生过的事，都发生在磁盘上、发生在当时——实际运行了哪些 gate、退出码、
+跑在哪个树上。PR 描述从这些记录渲染出来，而不是靠 agent 回忆。
 
-## 一个任务里有什么
+## 亮点
 
-- **`TASK.md`**：Request、Product、Design、Durable updates、Deferrals。写代码前由人批准。`pr` 要求有耐久更新记录，避免任务做完、仓库什么都没学到。
-- **`plan.json`**：按 commit 粒度的步骤，每步有标题、commit subject 和计划中的检查。批准只覆盖这些不可变字段；`plan step` 记录状态、总结和实际结果，`pr` 要求所有步骤都完成。标记 done 时必须给结果，不能只打个勾。
-- **任务 worktree**：`codeflow/<id>` 分支，加上 `~/.local/state/codeflow/worktrees/<repo>/<task>` 下的独立工作树。任务的树就是要交付的树；codeflow 不会退回去验证你的主 checkout。
-- **`evidence.json`**：跑了哪些 gate、退出码、耗时、日志、tree hash、config hash、gate-set hash、分支和 dirty 状态。rebase 之后，只有树没变才可复用。
-- **`REVIEW.md`**：diff stat、计划状态、验证结果、风险项、scope drift 和最该重点看的地方，集中在一份包里。
-- **`PR_BODY.md`**：从 task-spec、plan、evidence 和仓库自己的 PR 模板生成。
+- **人工把关** // spec、plan、self-review 和 merge 都由你批准。根本没有 merge 命令可删。
+- **证据，不是记忆** // PR 只能从"对当前这棵树真实跑过的检查"里开出来。rebase 过就重新跑。
+- **一个任务一个 worktree** // 每个任务独立的分支和 worktree。两个 agent 永不共享工作树，base 分支永不被碰。
+- **扛得住重载** // 状态在磁盘上，不在聊天记忆里。会话可以死，另一个会话接着干；blocked 的任务原地等待，不瞎猜。
 
-这些都放在 `.codeflow/state/` 下，属于本地状态，通过 `.git/info/exclude` 排除。state 和 trust 属于项目根目录，被验证的 config 来自任务 worktree。如果 `.codeflow/state` 被 git 跟踪，所有命令都会拒绝运行。
+## 为什么有这个项目
 
-## 环境要求
+codeflow 是一个面向 Agent-First 的软件工程流程插件。它的开发流程主要借鉴了 JetBrains 的
+[ThinkRail](https://github.com/JetBrains/thinkrail)，目标是解决多人（多 AI）围绕一个仓库
+协作开发时的流程问题：把仓库交给 agent 之后，有四件事容易丢——任务停在哪、哪些检查真的
+跑过、PR 描述的依据是什么、谁拍板了什么。
 
-- Node.js 20 或更新
-- git
-- DeepSeek Harness (DSH)
-- `gh`：可选；没有它时，`pr` 会推分支并打印 compare URL
+codeflow 把这些答案放进 `.codeflow/state/` 下的文件里——一份按哈希批准的
+spec，一份步骤必须留有结果的 plan，一份绑定在具体树上的证据。
 
-## 安装
+任务沿着 `created → designed → planned → active → verified → pr_open → done` 走。
+出任何岔子——冲突、gate 失败——就变成 `blocked`，在你解决之前一直阻塞。没有任何东西会
+自动重试或自行解决冲突。
 
-DSH 把插件装进 profile，而不是项目。把这个检出作为 bundle 加进去，然后重启 profile：
+## 快速开始
 
-```bash
-git clone https://github.com/PenguinSoul/dsh-codeflow.git
-dsh plugin --profile tui add link:/absolute/path/to/dsh-codeflow
-dsh tui
-```
-
-也可以不克隆，直接从 GitHub 安装：
+作为 DSH bundle 安装（需要 [pnpm](https://pnpm.io) 在 `PATH` 上）：
 
 ```bash
 dsh plugin --profile tui add "github:PenguinSoul/dsh-codeflow#main"
 ```
 
-pnpm 12 会发现包内带的 skill，并询问是否把它链接进 agent skill 目录。DSH 不需要这条
-链接——适配器自己注册技能。选拒绝（在 profile 目录执行 `pnpm approve '!codeflow'`）
-或忽略提示即可；如果选择同意、而 profile 又没有 `skills.dirs`，下一次 `pnpm install`
-会失败。
-
-这个 bundle 提供 `codeflow` 技能，以及每个 markdown 文件对应的一条命令
-`/codeflow-<verb>`：`/codeflow-new "修复登录跳转"`、`/codeflow-plan`、
-`/codeflow-verify` 等等。DSH 的命令名只允许小写字母、数字、`_` 和 `-`，所以源文件里
-的规范前缀 `/codeflow:` 注册时变成 `/codeflow-`。适配器把 `${CODEFLOW_ROOT}`
-替换成实际安装路径，模型不会拿到一个不存在的路径。
-
-`codeflow` 本身只有一份实现。CLI、状态机、门禁和证据模型，不管从哪个入口进来，
-行为都一致。
-
-想在 agent 之外手动调用，直接用检出目录或安装缓存里的可执行文件：
+或从本地检出安装：
 
 ```bash
-/path/to/codeflow/bin/codeflow --version
+git clone https://github.com/PenguinSoul/dsh-codeflow.git
+dsh plugin --profile tui add link:/absolute/path/to/dsh-codeflow
 ```
 
-## 快速开始
-
+装好后会得到 `codeflow` 技能，以及每个 CLI 动词对应的 `/codeflow-<verb>` 命令。
 在 DSH 提示符里：
 
 ```text
 /codeflow-init
 /codeflow-trust
-/codeflow-new "修复登录重定向"
-/codeflow-approve design
-/codeflow-plan
-/codeflow-approve plan
+/codeflow-new "修复登录跳转"
 /codeflow-start
 /codeflow-verify
-/codeflow-self-review
-/codeflow-approve self-review
 /codeflow-pr
 ```
 
-在 CLI 里：
+CLI 本身不依赖 agent 也能用——每条命令都支持 `--json`，人或脚本可以驱动同一套流程：
 
 ```bash
-# 1. 写 config，并在 start 之前提交它
-codeflow init
-git add .codeflow/config.json && git commit -m "chore: add codeflow config"
-
-# 2. 看清楚要跑哪些命令，再批准
-codeflow trust
-codeflow trust --yes
-
-# 3. 建任务，填 .codeflow/state/tasks/<id>/TASK.md
-codeflow new "修复登录重定向"
-codeflow approve design
-
-# 4. 写计划，再批准
-codeflow plan --init
-# 编辑 .codeflow/state/tasks/<id>/plan.json
-codeflow plan
-codeflow approve plan
-
-# 5. 在任务 worktree 里干活
-codeflow start
-
-# 6. 记录每一步实际做了什么
-codeflow plan step 1 --status done \
-  --summary "加了重定向保护。" \
-  --result "npm test -> pass"
-
-# 7. 验证、自审、开 PR
-codeflow verify
-codeflow self-review
-codeflow approve self-review
-codeflow pr
-
-# 8. 用 GitHub 的话，看 CI 和 review 线程
-codeflow watch
-codeflow comments
-
-# 9. 你合并之后
-codeflow finish
+bin/codeflow init          # 写 .codeflow/config.json，然后提交它
+bin/codeflow trust --yes   # 批准确切的 gate 命令
+bin/codeflow new "修复登录跳转"
 ```
 
-所有命令都支持 `--json`。
+没有 `gh` 时，`pr` 会推分支并打印 compare URL，而不是失败。
+
+## 你仍然要批准的东西
+
+1. codeflow 允许运行的精确 gate 命令（`trust`）。
+2. 任务 spec，在任何代码存在之前（`approve design`）。
+3. plan，按不可变步骤的哈希批准（`approve plan`）。
+4. self-review 包（`approve self-review`）。
+5. merge——在 GitHub 上，用你自己的手。
+
+## 为什么可以信它
+
+- **Gate 命令就是代码。** `trust` 展示每一条命令，并按配置哈希记录批准。改了配置，
+  trust 即失效，需要重新说 yes。
+- **证据绑定在树上。** 退出码、耗时、日志和树、配置、分支的哈希存在一起。改变树的
+  rebase 会让证据过期；`pr` 直接拒绝。
+- **没发生过的事不会报成功。** 没有检查的仓库报 `none`。pending 的检查不是绿的。
+- **状态是本地的。** 一旦 git 跟踪了 `.codeflow/state/`，所有命令拒绝运行。
+
+## 什么时候不适合用
+
+codeflow 刻意保持很小。如果你想要自动 merge、后台守护进程、多仓库编排，或者一个能自己
+解决冲突的 agent——那它不适合你。它目前假设 WSL/Linux、Node 20+、git，以及一个打算
+亲自读 plan 的人。
 
 ## 命令
 
-| 命令 | 作用 | 常用选项 |
-| --- | --- | --- |
-| `init` | 探测 base branch、包管理器和候选 gate | `--force` |
-| `trust` | 展示精确的 gate 命令并记录批准 | `--yes` |
-| `new <title>` | 创建任务和 task-spec | `--kind`、`--issue` |
-| `approve <target>` | 按 hash 批准 `design`、`plan` 或 `self-review` | `--by`、`--note` |
-| `plan` | 校验并渲染计划；`plan step` 记录进度 | `plan step <id> --status --summary --result` |
-| `start` | 创建任务分支和 worktree | `--dry-run` |
-| `verify` | 跑 gate，记录证据 | `--full`、`--live --allow-live`、`--retry` |
-| `self-review` | 生成 self-review 包 | `--scope-drift`、`--closest-look` |
-| `pr` | rebase、渲染 body、推送并创建/更新 PR | `--no-push`、`--dry-run` |
-| `watch` | 读 PR checks 和 merge 状态 | `--wait`、`--timeout <s>`、`--interval <ms>` |
-| `comments` | 读 review 线程及解决状态 | — |
-| `status` | 看当前任务和下一步 | `--brief`、`--task` |
-| `resume` | 问题解决后继续 blocked 任务 | `--task` |
-| `finish` | 验证合并，然后删 worktree | `--confirm`、`--delete-branch`、`--force` |
-| `abandon` | 丢弃不会交付的任务 | `--confirm`、`--delete-branch`、`--force` |
-| `doctor` | 检查 git、gh、登录、worktree 根目录、state、schema 和锁 | — |
-
-全局选项：`--json`、`--task <id>`、`--help`、`--version`。
-
-### 退出码
-
-| 退出码 | 含义 |
+| 命令 | 作用 |
 | --- | --- |
-| `0` | 成功 |
-| `1` | 必需 gate 失败或超时 |
-| `2` | 用法、配置、仓库或 schema 错误 |
-| `3` | 状态冲突、批准过期或锁 |
-| `4` | Git 冲突、工作区不干净或 push 失败 |
-| `5` | GitHub/`gh` 缺失、未登录或 PR 冲突 |
-| `6` | 信任缺失或过期 |
-| `7` | 任务 blocked，需要人处理 |
-| `8` | 非预期的内部错误 |
+| `init` | 检测 base 分支、包管理器和候选 gate |
+| `trust` | 展示确切的 gate 命令并记录批准 |
+| `new <title>` | 创建任务和任务 spec |
+| `approve <design\|plan\|self-review>` | 按哈希批准 |
+| `plan` / `plan step` | 校验 plan；记录步骤结果 |
+| `start` | 创建任务分支和 worktree |
+| `verify` | 运行 gate 并记录证据 |
+| `self-review` | 生成 review 包 |
+| `pr` | rebase、渲染描述、推送、开 PR |
+| `watch` / `comments` | 只读查看 PR 检查和评审线程 |
+| `status` | 显示当前任务和下一步 |
+| `resume` / `finish` / `abandon` | 解除阻塞、归档已合并任务、或放弃任务 |
+| `doctor` | 检查 git、gh、状态、schema 和锁 |
 
-## 安全，直说
+选项和退出码：`codeflow <command> --help`，或看
+[docs/contracts.md](docs/contracts.md)。
 
-- Gate 命令就是代码。`init` 不会执行它们；`trust` 展示每一条，并把批准绑定到精确的 config hash。任务分支改了 config，就要单独批准那个 config。
-- 证据绑定到 tree、config、gate set 和分支。`pr` 会检查 worktree 是否在任务分支上、PR head 是否等于已验证的 HEAD。rebase 改了树，就重新 verify。
-- `.codeflow/state` 是本地状态。如果它被 git 跟踪，codeflow 直接拒绝运行，不会信任仓库带来的 state。
-- 仓库没有 checks 时报告 `none`，不是 success。pending 或无法判断，也不是绿。
-- `finish` 只接受已开或已合并的 PR。不会交付的任务用 `abandon`。`--force` 只绕过 dirty worktree，不绕过合并检查。
-- `gh` 装了但没登录时，交付会失败。它不会悄悄退回 compare URL，`finish` 也不会把失败当成“没有 PR”。
-- codeflow 不存 token，GitHub 认证归 `gh`。Gate 日志只在本机，里面可能有项目自己打印的敏感信息。
-- 没有 merge 命令。skill 明确禁止 `gh pr merge`。
+## 文档
 
-## 产物
-
-会提交到仓库：
-
-```text
-.codeflow/config.json
-```
-
-本地状态，通过 `.git/info/exclude` 排除：
-
-```text
-.codeflow/state/
-  active.json
-  trust.json
-  state.lock
-  tasks/<id>/
-    task.json
-    TASK.md
-    plan.json
-    PLAN.md
-    evidence.json
-    EVIDENCE.md
-    review.json
-    REVIEW.md
-    pr.json
-    PR_BODY.md
-    comments.json
-    COMMENTS.md
-    events.jsonl
-    lock
-    logs/<gate>.log
-```
-
-worktree 默认在 `~/.local/state/codeflow/worktrees/<repo>/<task>`。每个任务有自己的锁；`active.json` 只是省略 `--task` 时的默认指针，任务在 `finish` 或 `abandon` 收尾后会被清掉。
-
-建议把 `worktreeRoot` 设为仓库内的路径（如 `.worktrees`）：主仓库和任务 worktree 在同一文件系统内，相对路径也按主仓库根解析；记得把该目录加入 `.gitignore`。
-
-## 更多细节
-
-设计文档在 [`docs/`](docs/)：
-
-- [`goal-and-requirements.md`](docs/goal-and-requirements.md)：codeflow 是什么、不是什么。
-- [`architecture.md`](docs/architecture.md)：状态模型背后的决策和不变量。
-- [`contracts.md`](docs/contracts.md)：JSON 形状和错误码。
-- [`DESIGN.md`](docs/DESIGN.md)：整合后的设计与实现顺序。
+- [docs/goal-and-requirements.md](docs/goal-and-requirements.md) — codeflow 是什么、不是什么
+- [docs/architecture.md](docs/architecture.md) — 状态模型背后的决策与不变量
+- [docs/contracts.md](docs/contracts.md) — JSON 形状、退出码、artifact schema
+- [docs/DESIGN.md](docs/DESIGN.md) — 整体设计
 
 ## 开发
 
 ```bash
-npm test                  # 122 个测试：临时仓库、fake gate、fake gh
-npm run check             # 对每个源文件执行 node --check
+npm test       # 临时仓库、假 gate、假 gh；完全离线
+npm run check  # 对每个源文件跑 node --check
 ```
 
-CI 在 Node 20 和 22 上跑 `npm test` 和 `npm run check`。测试不联网；真实 GitHub 路径用私有仓库做过手动 smoke。
+CI 在 Node 20 和 22 上跑这两项。
 
-已知限制：
+## 参与
 
-- 没有截图自动化；PR body 会留占位符。
-- 没有 MCP adapter、issue tracker 同步、多仓库编排、Web UI 或任务 GC。
-- 目前只有 schema v1；迁移会等第一次版本升级时再做。
-- Windows 原生行为还没有作为 CI gate。
-- CLI 会检查 PR 状态，但不强制独立 reviewer；那仍然取决于你的仓库设置。
+`main` 已开启分支保护。所有改动都走 PR；文档类 PR 可以很小。不要为了让改动通过而
+弱化测试或跳过人工闸。
 
-## 贡献
+## 许可
 
-`main` 已开启分支保护。所有改动都通过 PR，并跑 Node 20/22 的检查；文档类 PR 可以很小。开 PR 前请跑 `npm test` 和 `npm run check`。不要为了让改动通过而弱化测试或跳过人工闸。
-
-## 许可证
-
-MIT。见 [`LICENSE`](LICENSE)。
+[MIT](LICENSE)
