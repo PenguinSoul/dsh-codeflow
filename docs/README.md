@@ -9,6 +9,7 @@ approval checklist for the current design.
 | [`architecture.md`](architecture.md) | Topology, ownership, module map, numbered decisions, invariants, state machine, trust, evidence, safety, testing |
 | [`contracts.md`](contracts.md) | The JSON wire: envelope, exit codes, errors, and every artifact schema |
 | [`DESIGN.md`](DESIGN.md) | The readable integrated design: flow, commands, artifacts, plugin surface, implementation order |
+| [`agent-team.md`](agent-team.md) | Optional prompt protocol for external agent-team orchestrators; no second scheduler or state owner |
 
 ## Reading order
 

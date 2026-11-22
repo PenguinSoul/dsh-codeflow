@@ -41,6 +41,14 @@ The CLI is the only state owner. Chat memory is not state.
 - Never edit `.codeflow/state/` by hand.
 - Never infer the current step from the conversation.
 
+## Agent teams (optional)
+
+When an external agent-team orchestrator assigns this task, or the user asks for
+agent-team compatibility, also read `${CODEFLOW_ROOT}/docs/agent-team.md`. Apply
+its `codeflow-agent-team/v1` task/result envelopes and role prompts. It is an
+optional projection over the CLI, not another state owner or scheduler. The team
+prompt never overrides the human boundary or red lines in this skill.
+
 ## Routes
 
 | The ask | First command | Human gate |
