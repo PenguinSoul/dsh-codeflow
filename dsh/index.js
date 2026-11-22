@@ -105,6 +105,10 @@ export function readSkill(root = packageRoot) {
     name: meta.name,
     description: meta.description,
     ...(typeof meta.whenToUse === "string" ? { whenToUse: meta.whenToUse } : {}),
+    // DSH's `validateDefinition` requires a string `source` when a registered
+    // skill is loaded back through `skills.get()`; registration alone accepts
+    // its absence, so a missing source would fail only at load time.
+    source: "codeflow",
     content: adapt(body.trimStart(), root),
   };
 }
