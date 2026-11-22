@@ -1,3 +1,14 @@
 node_modules/
 .codeflow/state/
 .worktrees/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Local logs
+*.log
+npm-debug.log*
