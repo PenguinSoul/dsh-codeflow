@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -245,6 +246,61 @@ test("pr rebases cleanly and refuses stale evidence until re-verified", async (t
     { encoding: "utf8" },
   ).trim();
   assert.equal(remoteHead, localHead);
+});
+
+test("a failed push reports why it failed", async (t) => {
+  const { dir } = repoWithRemote(t);
+  const planned = await setupPlanned(dir, t);
+
+  writeFileSync(join(planned.worktree, "task.txt"), "task\n");
+  git(planned.worktree, ["add", "-A"]);
+  git(planned.worktree, ["commit", "-m", "task change"]);
+  await verifyAndReview(dir);
+
+  const hook = join(dir, ".git/hooks/pre-push");
+  writeFileSync(hook, "#!/bin/sh\necho 'pre-push refused the update' >&2\nexit 1\n");
+  chmodSync(hook, 0o755);
+
+  const env = fakeGhEnv(t, { checks: ["SUCCESS"] });
+  const failed = await invoke(["pr", "--json"], dir, env);
+  assert.equal(failed.code, 4, failed.err || failed.out);
+  assert.equal(failed.json.error.code, "E_PUSH_FAILED");
+  assert.equal(failed.json.error.details.timedOut, false);
+  assert.match(failed.json.error.details.stderr, /pre-push refused the update/);
+
+  const taskAfter = JSON.parse(readFileSync(planned.taskFile, "utf8"));
+  assert.equal(taskAfter.status, "verified");
+});
+
+test("a rebase that cannot run is not reported as a conflict", async (t) => {
+  const { dir } = repoWithRemote(t);
+  const planned = await setupPlanned(dir, t);
+
+  writeFileSync(join(planned.worktree, "task.txt"), "task\n");
+  git(planned.worktree, ["add", "-A"]);
+  git(planned.worktree, ["commit", "-m", "task change"]);
+  await verifyAndReview(dir);
+
+  writeFileSync(join(dir, "base.txt"), "base\n");
+  git(dir, ["add", "-A"]);
+  git(dir, ["commit", "-m", "base change"]);
+  git(dir, ["push", "origin", "main"]);
+
+  // A blocked pre-rebase hook fails the rebase without producing conflicts.
+  const hook = join(dir, ".git/hooks/pre-rebase");
+  writeFileSync(hook, "#!/bin/sh\necho 'hook blocked the rebase' >&2\nexit 1\n");
+  chmodSync(hook, 0o755);
+
+  const failed = await invoke(["pr", "--json"], dir);
+  assert.equal(failed.code, 4, failed.err || failed.out);
+  assert.equal(failed.json.error.code, "E_REBASE_FAILED");
+  assert.equal(failed.json.error.details.reason, "failed");
+  assert.match(failed.json.error.details.stderr, /hook blocked the rebase/);
+
+  const taskAfter = JSON.parse(readFileSync(planned.taskFile, "utf8"));
+  assert.equal(taskAfter.status, "verified");
+  assert.equal(taskAfter.blocked, null);
+  assert.equal(git(planned.worktree, ["status", "--porcelain"]), "");
 });
 
 test("finish trusts gh over --confirm and --force", async (t) => {

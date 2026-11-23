@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
+import { writeJsonAtomic } from "../src/util.mjs";
 import { defaultConfig } from "../src/config.mjs";
 import { planApprovalHash, planPath } from "../src/plan.mjs";
 import { findRepo } from "../src/repo.mjs";
@@ -10,11 +11,13 @@ import {
   readTask,
   statePaths,
   taskFile,
+  writeTask,
 } from "../src/state.mjs";
 import {
   approvalState,
   approveTask,
   createTask,
+  durableUpdates,
   hashFile,
   missingTaskSections,
 } from "../src/task.mjs";
@@ -95,6 +98,22 @@ test("design approval refuses an unfilled template", (t) => {
   );
 });
 
+test("a repeated heading appends instead of wiping its section", (t) => {
+  const { paths, task } = setup(t);
+
+  // A duplicated empty heading used to reset the section buffer, so a filled
+  // Request looked empty and design approval refused a valid TASK.md.
+  const duplicated = `${SPEC}\n## Request\n\n## Design\n`;
+  writeFileSync(taskFile(paths, task.id, "TASK.md"), duplicated);
+
+  assert.deepEqual(missingTaskSections(duplicated), []);
+  assert.equal(durableUpdates(duplicated), "Not durable — test fixture.");
+  assert.equal(
+    approveTask(paths, task, "design", { by: "Test <t@t>" }).status,
+    "designed",
+  );
+});
+
 test("design approval is hash-bound and goes stale after an edit", (t) => {
   const { paths, task } = setup(t);
   writeFileSync(taskFile(paths, task.id, "TASK.md"), SPEC);
@@ -109,6 +128,26 @@ test("design approval is hash-bound and goes stale after an edit", (t) => {
     `${SPEC}\n## Deferrals\nNone.\n`,
   );
   assert.equal(approvalState(paths, approved).design.stale, true);
+});
+
+test("re-approving a revised plan keeps a started task active", (t) => {
+  const { paths, task } = setup(t);
+  writeFileSync(taskFile(paths, task.id, "TASK.md"), SPEC);
+  approveTask(paths, task, "design", { by: "Test <t@t>" });
+  writeJsonAtomic(planPath(paths, task.id), PLAN(task.id));
+  assert.equal(
+    approveTask(paths, task, "plan", { by: "Test <t@t>" }).status,
+    "planned",
+  );
+
+  const started = readTask(paths, task.id);
+  started.status = "active";
+  writeTask(paths, started);
+
+  const again = approveTask(paths, readTask(paths, task.id), "plan", {
+    by: "Test <t@t>",
+  });
+  assert.equal(again.status, "active");
 });
 
 test("plan approval requires a fresh design approval and a valid plan", (t) => {
