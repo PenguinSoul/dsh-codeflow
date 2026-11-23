@@ -56,6 +56,9 @@ function renderReview(review, context) {
     "## Verification",
     "| Gate | Tier | Result | Duration |",
     "| --- | --- | --- | --- |",
+    ...((evidence.gates ?? []).length === 0
+      ? ["| _(none)_ | — | no gates ran | — |"]
+      : []),
     ...(evidence.gates ?? []).map(
       (gate) =>
         `| ${gate.name} | ${gate.tier} | ${gate.exitCode}${gate.timedOut ? " (timeout)" : ""}${gate.flaky ? " (flaky)" : ""} | ${gate.durationMs}ms |`,

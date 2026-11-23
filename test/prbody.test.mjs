@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseTemplate, renderPrBody, titleFor } from "../src/prbody.mjs";
+
+const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 
 const task = {
   id: "2026-10-26-fix-login",
@@ -130,6 +135,47 @@ test("renderPrBody fills sections from artifacts and only ticks evidence-backed 
   assert.match(body, /also renamed a helper/);
   assert.match(body, /the redirect guard/);
   assert.doesNotMatch(body, /^old$/m);
+});
+
+test("the repository template renders without placeholders", () => {
+  // `pr.template` points at this file; a missing or stale template used to leave
+  // a TODO and an empty checklist in every pull request body. Rendered with
+  // `screenshots: "none"` so the assertions hold for any shipped template.
+  const body = renderPrBody({
+    template: readFileSync(
+      join(repoRoot, ".github/PULL_REQUEST_TEMPLATE.md"),
+      "utf8",
+    ),
+    task,
+    taskSpec,
+    plan,
+    evidence,
+    config: { pr: { screenshots: "none", titlePrefix: "" } },
+    review,
+    diffStatText: "1 file changed",
+  });
+
+  assert.doesNotMatch(body, /TODO/);
+  assert.doesNotMatch(body, /^old$/m);
+  assert.match(body, /\| test \| fast \| yes \| pass \| 12ms \|/);
+  assert.match(body, /- \[x\][^\n]*\btest/);
+  assert.doesNotMatch(body, /- \[ \][^\n]*\btest/);
+  assert.match(body, /Stop the redirect loop\./);
+});
+
+test("an empty gate list says no gates ran instead of an empty table", () => {
+  const body = renderPrBody({
+    template,
+    task,
+    taskSpec,
+    plan,
+    evidence: { ...evidence, gates: [] },
+    config: { pr: { screenshots: "manual", titlePrefix: "" } },
+    review,
+    diffStatText: "1 file changed",
+  });
+
+  assert.match(body, /\| _\(none\)_ \| — \| — \| no gates ran \| — \|/);
 });
 
 test("screenshots: none renders the no-frontend sentence, not a TODO", () => {

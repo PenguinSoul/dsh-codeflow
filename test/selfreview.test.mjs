@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { defaultConfig } from "../src/config.mjs";
 import { writeEvidence } from "../src/evidence.mjs";
@@ -102,6 +102,25 @@ test("buildReviewPacket writes the packet and approveSelfReview signs it", (t) =
     selfReviewFresh(paths, task, { cwd: dir, base: config.baseBranch }).fresh,
     true,
   );
+});
+
+test("the review packet names the zero-gate case", (t) => {
+  const { dir, config, paths, task, evidence, plan } = setup(t);
+  writeEvidence(paths, task, { ...evidence, gates: [] });
+  buildReviewPacket({
+    paths,
+    task,
+    cwd: dir,
+    base: config.baseBranch,
+    plan,
+    evidence: { ...evidence, gates: [] },
+  });
+
+  const packet = readFileSync(
+    taskFile(paths, task.id, "REVIEW.md"),
+    "utf8",
+  );
+  assert.match(packet, /\| _\(none\)_ \| — \| no gates ran \| — \|/);
 });
 
 test("editing an approved review packet invalidates the sign-off", (t) => {

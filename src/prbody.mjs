@@ -40,7 +40,12 @@ function verificationTable(evidence) {
     "| Gate | Tier | Required | Result | Duration |",
     "| --- | --- | --- | --- | --- |",
   ];
-  for (const gate of evidence.gates ?? []) {
+  const gates = evidence.gates ?? [];
+  if (gates.length === 0) {
+    // An empty table reads like "everything passed silently". Say what happened.
+    return [...lines, "| _(none)_ | — | — | no gates ran | — |"].join("\n");
+  }
+  for (const gate of gates) {
     const result = gate.timedOut
       ? "timeout"
       : gate.exitCode === 0
