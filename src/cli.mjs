@@ -22,6 +22,7 @@ import {
   assertWorktreeBranch,
   git,
   gitOrNull,
+  gitResult,
   isClean,
   rebaseOntoBase,
   removeWorktree,
@@ -1778,6 +1779,20 @@ async function prCommand(repo, config, flags, env) {
         "Resolve the conflict manually, run `codeflow resume`, then verify again.",
       );
     }
+    if (!rebase.ok) {
+      throw new CodedError(
+        ERROR_CODES.REBASE_FAILED,
+        `the task branch could not be rebased onto ${remote}/${config.baseBranch}`,
+        {
+          reason: rebase.reason,
+          stderr: rebase.stderr ?? null,
+          headBefore: rebase.headBefore,
+          headAfter: rebase.headAfter,
+          taskStatus: task.status,
+        },
+        "Fix the local git state (a blocked hook, a dirty index, or a broken remote ref), then run `codeflow pr` again.",
+      );
+    }
   }
 
   const evidence = readEvidence(paths, task.id);
@@ -1918,18 +1933,28 @@ async function prCommand(repo, config, flags, env) {
       pushArgs.push("--force-with-lease");
     }
     pushArgs.push(remote, task.branch);
-    const pushed = git(pushArgs, {
-      cwd: worktree,
-      allowFail: true,
-    });
-    if (pushed === null) {
+    // A push over a slow link can outlive the default 30s git timeout, and a
+    // silent failure here is impossible to diagnose from the envelope. Keep the
+    // stderr tail and say when the push timed out.
+    const pushed = gitResult(pushArgs, { cwd: worktree, timeout: 120000 });
+    if (!pushed.ok) {
       throw new CodedError(
         ERROR_CODES.PUSH_FAILED,
-        "the task branch could not be pushed",
-        { remote, branch: task.branch, rebased: rebase.rebased },
-        rebase.rebased
-          ? "The rebase rewrote the branch and the lease failed. Fetch the remote, confirm nobody else updated the branch, then retry."
-          : "Check the remote and your credentials, then retry.",
+        pushed.timedOut
+          ? `the push to ${remote} timed out`
+          : "the task branch could not be pushed",
+        {
+          remote,
+          branch: task.branch,
+          rebased: rebase.rebased,
+          timedOut: pushed.timedOut,
+          stderr: pushed.stderr.trim().split(/\r?\n/).slice(-20).join("\n"),
+        },
+        pushed.timedOut
+          ? "The remote did not answer in time. Check the network, then retry."
+          : rebase.rebased
+            ? "The rebase rewrote the branch and the lease failed. Fetch the remote, confirm nobody else updated the branch, then retry."
+            : "Check the remote and your credentials, then retry.",
       );
     }
   }

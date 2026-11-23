@@ -43,6 +43,31 @@ export function gitOrNull(args, options = {}) {
   return git(args, { ...options, allowFail: true });
 }
 
+// Like git(), but keeps stdout/stderr even when the command fails, so callers
+// can report why a command could not run.
+export function gitResult(args, options = {}) {
+  const {
+    cwd,
+    timeout = 30000,
+    env = process.env,
+  } = options;
+  const result = spawnSync("git", args, {
+    cwd,
+    timeout,
+    encoding: "utf8",
+    env,
+    maxBuffer: 20 * 1024 * 1024,
+  });
+  return {
+    ok: !result.error && result.status === 0,
+    status: result.status ?? -1,
+    timedOut: result.error?.code === "ETIMEDOUT",
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+    error: result.error ?? null,
+  };
+}
+
 export function isGitRepo(cwd) {
   return gitOrNull(["rev-parse", "--is-inside-work-tree"], { cwd }) === "true";
 }
@@ -177,8 +202,8 @@ export function rebaseOntoBase(cwd, remote, base) {
     };
   }
 
-  const rebased = git(["rebase", resolved.ref], { cwd, allowFail: true });
-  if (rebased === null) {
+  const rebased = gitResult(["rebase", resolved.ref], { cwd });
+  if (!rebased.ok) {
     const conflicts = (gitOrNull(
       ["diff", "--name-only", "--diff-filter=U"],
       { cwd },
@@ -186,16 +211,20 @@ export function rebaseOntoBase(cwd, remote, base) {
       .split(/\r?\n/)
       .filter(Boolean);
     gitOrNull(["rebase", "--abort"], { cwd });
+    // A non-zero rebase with no unmerged paths is not a conflict: a blocked
+    // pre-rebase hook, a dirty index, or a spawn failure all land here.
+    const reason = conflicts.length > 0 ? "conflict" : "failed";
     return {
       ok: false,
       rebased: false,
-      reason: "conflict",
+      reason,
       source: resolved.source,
       fetched: resolved.fetched,
       baseCommit,
       headBefore,
       headAfter: gitOrNull(["rev-parse", "HEAD"], { cwd }) ?? headBefore,
       conflicts,
+      stderr: rebased.stderr.trim().split(/\r?\n/).slice(-20).join("\n"),
     };
   }
 

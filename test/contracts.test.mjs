@@ -69,5 +69,6 @@ test("CodedError serializes and maps to an exit code", () => {
     hint: "Run codeflow trust",
   });
   assert.equal(exitFor(error.code), EXIT.TRUST);
+  assert.equal(exitFor(ERROR_CODES.REBASE_FAILED), EXIT.GIT);
   assert.equal(exitFor("E_UNKNOWN"), EXIT.INTERNAL);
 });
