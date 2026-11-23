@@ -44,13 +44,16 @@ export function taskTemplate(title) {
 }
 
 function strippedSections(markdown) {
+  // Repeated headings append to the first section with that name. Resetting the
+  // buffer on every heading let a second, empty `## Request` erase the first one
+  // and made `approve design` claim TASK.md was still a template.
   const sections = {};
   let current = null;
   for (const line of markdown.split(/\r?\n/)) {
     const heading = line.match(/^##\s+(.+?)\s*$/);
     if (heading) {
       current = heading[1].toLowerCase();
-      sections[current] = [];
+      sections[current] = sections[current] ?? [];
     } else if (current) {
       sections[current].push(line);
     }
@@ -231,7 +234,12 @@ export function approveTask(paths, task, target, options = {}) {
       approvedAt: nowIso(),
       note,
     };
-    task.status = "planned";
+    // Re-approving a revised plan must not undo progress: a task that already
+    // started keeps its status, and the stale checks decide what to redo. Only
+    // the pre-start states move to "planned".
+    if (task.status === "created" || task.status === "designed") {
+      task.status = "planned";
+    }
   } else {
     throw new CodedError(
       ERROR_CODES.USAGE,
